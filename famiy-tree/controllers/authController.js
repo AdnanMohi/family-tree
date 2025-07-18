@@ -1,4 +1,5 @@
 import { getConnection } from "../db.js";
+import bcrypt from 'bcryptjs';
 
 export async function registerController(req, res, body) {
   const { name, email, password } = body;
@@ -9,11 +10,13 @@ export async function registerController(req, res, body) {
   }
 
   try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     const db = await getConnection();
 
     await db.execute(
       'INSERT INTO family_tree.users (name, email, password) VALUES (?, ?, ?)',
-      [name, email, password]
+      [name, email, hashedPassword]
     );
 
     console.log('User registered:', { name, email });
