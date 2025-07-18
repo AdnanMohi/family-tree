@@ -18,17 +18,29 @@ A lightweight, dependency-free family tree project built with **Node.js**, **Jav
 
 ```
 family-tree/
-├── db.js               # MySQL connection and table setup
-├── index.js            # Main server file using Node's http module
-├── routes/
-│   └── index.js        # Route handler object for different URLs
-├── public/             # Static frontend assets (HTML, CSS, JS)
+├── controllers/
+│   ├── authController.js
+│   └── dashboardController.js
+├── node_modules/
+├── public/
+│   ├── js/
+│   │   └── dashboardScript.js
+│   ├── dashboard.html
 │   ├── index.html
-│   └── styles.css
-├── .env                # Environment config (not tracked in Git)
-├── package.json        # Project metadata and dependencies
-├── package-lock.json   # Dependency lock file
-└── README.md           # Project documentation (you're here!)
+│   ├── register.html
+│   └── scripts.js
+├── routes/
+│   ├── auth.js
+│   ├── dashboard.js
+│   └── index.js
+├── utils/
+│   └── bodyParser.js
+├── .gitignore
+├── README.md
+├── db.js
+├── index.js
+├── package-lock.json
+└── package.json
 ```
 
 ---
