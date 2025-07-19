@@ -1,5 +1,6 @@
 import { parseBody } from '../utils/bodyParser.js';
 import { registerController } from '../controllers/authController.js';
+import { loginController } from '../controllers/authController.js';
 
 export async function handleRegister(req, res) {
   try {
@@ -10,3 +11,26 @@ export async function handleRegister(req, res) {
     res.end(JSON.stringify({ status: "error", error: "Server error" }));
   }
 }
+
+// handle login
+export async function handleLogin(req, res) {
+  try {
+    const body = await parseBody(req);
+    const { email, password } = body;
+
+    if (!email || !password) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ status: "error", error: "Invalid input" }));
+    }
+
+    await loginController(req, res, body);  // sends response itself
+  } catch (err) {
+    console.error('Login error:', err);
+    if (!res.headersSent) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ status: "error", error: "Server error" }));
+    }
+  }
+}
+
+
