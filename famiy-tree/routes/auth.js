@@ -33,4 +33,17 @@ export async function handleLogin(req, res) {
   }
 }
 
+// handle logout
+export async function handleLogout(req, res) {
+  try {
+    // In a real app, you would clear the session or token here
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ status: "success", message: "Logged out successfully" }));
+  } catch (err) {
+    console.error('Logout error:', err);
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ status: "error", error: "Server error" }));
+  }
+}
+
 

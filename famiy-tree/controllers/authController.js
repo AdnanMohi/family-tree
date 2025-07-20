@@ -23,12 +23,18 @@ export async function registerController(req, res, body) {
 
     res.writeHead(201, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ status: 'success', message: 'User registered' }));
-  } catch (err) {
-    console.error('DB error:', err);
-    const errorMsg = err.code === 'ER_DUP_ENTRY' ? 'Email already registered' : 'Database error';
+  }  catch (err) {
+    console.error('❌ DB error:', err);
 
+    // Use proper status code for known client error
+    if (err.code === 'ER_DUP_ENTRY') {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ status: 'error', error: 'If an account with this email already exists, please sign in.' }));
+    }
+
+    // Internal server error fallback
     res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: 'error', error: errorMsg }));
+    res.end(JSON.stringify({ status: 'error', error: 'Something went wrong, try again.' }));
   }
 }
 
