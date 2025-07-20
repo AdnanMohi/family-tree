@@ -8,10 +8,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const publicDir = path.join(__dirname, 'public');
 
+const frontendRoutes = ['/users', '/settings', '/profile', '/dashboard'];
+
 const server = http.createServer((req, res) => {
   console.log(`🧭 ${req.method} ${req.url}`);
 
-    // Route handling
+  // Route handling
   const routeKey = `${req.method} ${req.url}`;
   const routeHandler = routes[routeKey];
 
@@ -19,18 +21,19 @@ const server = http.createServer((req, res) => {
     return routeHandler(req, res);
   }
 
-  // Serve static files
-  let filePath = path.join(publicDir, req.url === '/' ? 'index.html' : req.url);
-
-  // Normalize and secure
-  filePath = path.normalize(filePath);
-
-  // If no extension, assume .html (e.g., /register -> /register.html)
-  if (!path.extname(filePath)) {
-    filePath += '.html';
+  // Determine the file to serve
+  let filePath;
+  if (req.url === '/' || frontendRoutes.includes(req.url)) {
+    filePath = path.join(publicDir, 'index.html');
+  } else {
+    filePath = path.join(publicDir, req.url === '/' ? 'index.html' : req.url);
+    if (!path.extname(filePath)) {
+      filePath += '.html';
+    }
   }
 
-  // Prevent directory traversal
+  // Normalize and secure path
+  filePath = path.normalize(filePath);
   if (!filePath.startsWith(publicDir)) {
     res.writeHead(403);
     return res.end('Access denied');
@@ -39,12 +42,27 @@ const server = http.createServer((req, res) => {
   // Read and serve the file
   fs.readFile(filePath, (err, data) => {
     if (err) {
+      // Fallback: serve index.html for SPA routes only
+      if (frontendRoutes.includes(req.url)) {
+        const fallbackPath = path.join(publicDir, 'index.html');
+        fs.readFile(fallbackPath, (indexErr, indexData) => {
+          if (indexErr) {
+            res.writeHead(404, { 'Content-Type': 'text/plain' });
+            return res.end('404 - Not Found');
+          }
+          res.writeHead(200, { 'Content-Type': 'text/html' });
+          return res.end(indexData);
+        });
+        return;
+      }
+
+      // Otherwise, true file not found
       res.writeHead(404, { 'Content-Type': 'text/plain' });
       return res.end('404 - Not Found');
     }
 
     const ext = path.extname(filePath);
-   const contentType = {
+    const contentType = {
       '.html': 'text/html',
       '.js': 'application/javascript',
       '.css': 'text/css',

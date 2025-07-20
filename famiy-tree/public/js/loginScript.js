@@ -27,6 +27,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           // Show error toast
           showToast('Invalid credentials, please try again.', 'error');
+          setTimeout(() => {
+            window.location.href = '/login'; // redirect back to login
+          }, 1000);
         }
       } catch (err) {
         // Show error toast

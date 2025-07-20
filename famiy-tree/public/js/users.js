@@ -1,4 +1,8 @@
-async function loadUsers() {
+export function init() {
+  loadUsers();
+}
+
+export async function loadUsers() {
   try {
     const res = await fetch('/dashboard-data');
     const data = await res.json();
@@ -6,7 +10,7 @@ async function loadUsers() {
     if (data.status !== 'success') throw new Error(data.error);
 
     const tbody = document.querySelector('#users-table tbody');
-    tbody.innerHTML = ''; // Clear any existing rows
+    tbody.innerHTML = '';
 
     data.users.forEach(user => {
       const row = document.createElement('tr');
@@ -21,8 +25,8 @@ async function loadUsers() {
   } catch (err) {
     console.error('Failed to load users:', err);
     const tbody = document.querySelector('#users-table tbody');
-    tbody.innerHTML = `<tr><td colspan="4">⚠️ Failed to load users</td></tr>`;
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="4" class="text-red-500">⚠️ Failed to load users</td></tr>`;
+    }
   }
 }
-
-window.addEventListener('DOMContentLoaded', loadUsers);
