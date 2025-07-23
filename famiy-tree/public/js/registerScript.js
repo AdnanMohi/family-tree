@@ -11,7 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!name || !email || !password) return alert("All fields are required.");
       if (!email.includes("@")) return alert("Invalid email.");
 
-      fetch("/register", {
+      fetch("api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password })
