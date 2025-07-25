@@ -1,16 +1,37 @@
+import 'dotenv/config';
 import http from 'http';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { routes } from './routes/index.js';
 import { parseBody } from './utils/bodyParser.js';
+import { authMiddleware, redirectIfLoggedIn } from './middleware/auth.js';
+import { sendError, sendSuccess, sendRedirect } from './utils/responseHelpers.js';
 
-// --- Configuration & Caching (No changes here) ---
+// --- Configuration ---
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const publicDir = path.join(__dirname, 'public');
 
-const frontendRoutes = ['/', '/users', '/settings', '/profile', '/dashboard'];
+// Dispatcher for serving HTML pages
+export function servePage(htmlFilename) {
+  return async (req, res) => {
+    try {
+      const filePath = path.join(publicDir, htmlFilename);
+      const html = await fs.readFile(filePath);
+      // It's good practice to send no-cache headers for all HTML pages
+      res.writeHead(200, {
+        'Content-Type': 'text/html',
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
+      });
+      res.end(html);
+    } catch (err) {
+      console.error(`Failed to load page: ${htmlFilename}`, err);
+      sendError(res, 500, 'Could not load page');
+    }
+  };
+}
+
 const staticFileCache = new Map();
 const mimeTypes = {
   '.html': 'text/html',
@@ -26,35 +47,34 @@ const mimeTypes = {
 const server = http.createServer(async (req, res) => {
   console.log(`🧭 ${req.method} ${req.url}`);
 
-  // Main Request Handling
   try {
     const routeKey = `${req.method} ${req.url}`;
-    const routeHandler = routes[routeKey];
+    const matchedRoute = routes[routeKey];
 
-    if (routeHandler) {
-      if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
-        try {
-          req.body = await parseBody(req);
-        } catch (error) {
-          // This nested try...catch handles only body parsing errors
-          return sendError(res, 400, 'Bad Request or Invalid JSON');
-        }
+    // HANDLE API & PAGE ROUTES
+    // This block handles every endpoint defined in your routes/index.js file.
+    if (matchedRoute) {
+      const { protected: isProtected = false, publicOnly, handler } = matchedRoute;
+
+      if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
+        req.body = await parseBody(req);
       }
-      return await routeHandler(req, res); // API call handled, exit.
+
+      // If the route is protected, we need to check authentication.
+      if (isProtected) {
+        return authMiddleware(req, res, () => handler(req, res));
+      } else if (publicOnly) {
+        return redirectIfLoggedIn(req, res, () => handler(req, res));
+      } else {
+        return handler(req, res); // Truly public routes
+      }
     }
 
-    // Static File Handling ---
-    if (frontendRoutes.includes(req.url)) {
-      filePath = path.join(publicDir, 'index.html');
-    } else {
-      let resourcePath = req.url === '/' ? 'index.html' : req.url;
-      if (!path.extname(resourcePath)) {
-        resourcePath += '.html';
-      }
-      filePath = path.join(publicDir, resourcePath);
-    }
+    // HANDLE STATIC ASSETS (CSS, JS, Images)
+    // If the request was not a defined route, it must be a static file.
+    let filePath = path.join(publicDir, req.url);
 
-    // Safety check: Ensure the file path is within the public directory.
+    // Safety check to prevent accessing files outside the public directory
     const normalizedPath = path.normalize(filePath);
     if (!normalizedPath.startsWith(publicDir)) {
       return sendError(res, 403, 'Access Denied');
@@ -76,42 +96,21 @@ const server = http.createServer(async (req, res) => {
     // Add the newly read file to the cache.
     staticFileCache.set(normalizedPath, { content: fileContent, mime: contentType });
 
-    // Use the sendSuccess helper.
-    sendSuccess(res, fileContent, contentType);
+    // Serve the file using the success helper
+    return sendSuccess(res, fileContent, contentType);
 
   } catch (error) {
-    // Handle file not found errors gracefully.
     if (error.code === 'ENOENT') {
-      return sendError(res, 404, 'Not Found', 'text/plain');
+      return sendError(res, 404, 'Not Found');
     }
-
-    // Handle errors from API handlers or other unexpected issues.
     console.error(`Unhandled server error for ${req.method} ${req.url}:`, error);
-    if (!res.headersSent) { // Check if a response has already started
-      sendError(res, 500, 'Internal Server Error', 'text/plain');
+    if (!res.headersSent) {
+      sendError(res, 500, 'Internal Server Error');
     }
   }
 });
 
-// For sending success responses
-function sendSuccess(res, content, contentType) {
-  res.writeHead(200, {
-    'Content-Type': contentType,
-    'Cache-Control': 'public, max-age=86400',
-  });
-  res.end(content);
-}
-
-// For sending error responses
-function sendError(res, statusCode, message, contentType = 'application/json') {
-  res.writeHead(statusCode, { 'Content-Type': contentType });
-  const errorPayload = contentType === 'application/json'
-    ? JSON.stringify({ error: message })
-    : message;
-  res.end(errorPayload);
-}
-
-// Start the server
+// --- Start the Server ---
 const PORT = 3000;
 server.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);

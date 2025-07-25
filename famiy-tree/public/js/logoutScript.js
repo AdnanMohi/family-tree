@@ -14,7 +14,12 @@ export function initLogoutButton() {
   logoutBtn.addEventListener('click', async () => {
     try {
       // Use the constant for the fetch call.
-      const res = await fetch(LOGOUT_API_ENDPOINT, { method: 'POST' });
+      const res = await fetch('api/logout', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
       
       // Check if the HTTP response was successful.
       if (res.ok) {
