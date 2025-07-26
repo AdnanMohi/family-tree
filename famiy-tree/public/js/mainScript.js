@@ -1,17 +1,8 @@
-import { showToast } from '../components/toast.js';
+import { initSidebarToggle } from '../components/sidebarToggle.js';
+import { initMainContentLoader } from '../components/mainContentLoader.js';
+import { initLogoutButton } from './logoutScript.js';
 
-document.getElementById('logout-btn').addEventListener('click', async () => {
-  try {
-    const res = await fetch('/logout', { method: 'POST' });
-    if (res.ok) {
-       showToast('👋 Logged out successfully', 'success');
-       setTimeout(() => 
-        window.location.href = '/login'
-      , 2000);
-    } else {
-      console.error('Logout failed');
-    }
-  } catch (err) {
-    console.error('Error during logout:', err);
-  }
-});
+// Initialize sidebar toggle and main content loader (core components)
+initSidebarToggle();
+initMainContentLoader();
+initLogoutButton();

@@ -24,3 +24,5 @@ Thumbs.db
 # Build output (if any)
 dist/
 build/
+
+project-README.md
