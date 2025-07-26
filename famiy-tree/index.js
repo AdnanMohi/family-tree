@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import { routes } from './routes/index.js';
 import { parseBody } from './utils/bodyParser.js';
 import { authMiddleware, redirectIfLoggedIn } from './middleware/auth.js';
-import { sendError, sendSuccess, sendRedirect } from './utils/responseHelpers.js';
+import { sendError, sendSuccess } from './utils/responseHelpers.js';
 
 // --- Configuration ---
 const __filename = fileURLToPath(import.meta.url);
@@ -47,14 +47,43 @@ const mimeTypes = {
 const server = http.createServer(async (req, res) => {
   console.log(`🧭 ${req.method} ${req.url}`);
 
-  try {
-    const routeKey = `${req.method} ${req.url}`;
-    const matchedRoute = routes[routeKey];
+try {
+    let routeConfig = null;
+    let params = {};
+
+    // Create a URL object to easily separate pathname and query.
+    const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+    const pathname = requestUrl.pathname;
+
+    // --- The Smart Router ---
+    for (const route of routes) {
+      if (route.method !== req.method) {
+        continue;
+      }
+      
+      const paramNames = [];
+      const regexPath = route.path.replace(/:([^\s/]+)/g, (match, paramName) => {
+        paramNames.push(paramName);
+        return '([^/]+)';
+      });
+      const regex = new RegExp(`^${regexPath}$`);
+      
+      // Match against the clean pathname, NOT the full req.url
+      const match = pathname.match(regex);
+
+      if (match) {
+        paramNames.forEach((name, index) => {
+          params[name] = match[index + 1];
+        });
+        routeConfig = route;
+        break;
+      }
+    }
 
     // HANDLE API & PAGE ROUTES
-    // This block handles every endpoint defined in your routes/index.js file.
-    if (matchedRoute) {
-      const { protected: isProtected = false, publicOnly, handler } = matchedRoute;
+    if (routeConfig) {
+      req.params = params; // Attach the dynamic params to the request object
+      const { handler, protected: isProtected, publicOnly } = routeConfig;
 
       if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
         req.body = await parseBody(req);
