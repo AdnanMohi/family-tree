@@ -5,13 +5,62 @@ import { sendJSON, sendError } from "../utils/responseHelpers.js";
 export async function getAllUsers(req, res) {
   try {
     const db = await getConnection();
-    const [users] = await db.execute(
-      "SELECT id, name, email, created_at FROM users"
-    );
-    if (users.length === 0) {
-      return sendJSON(res, 200, { users: [] }); // Return an empty array if no users found
+
+    // Parse query parameters for pagination, search, and sorting
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const page = parseInt(url.searchParams.get('page')) || 1;
+    const searchTerm = url.searchParams.get('search') || '';
+
+    // Default sorting parameters
+    const sortBy = url.searchParams.get('sortBy') || 'name';
+    const sortOrder = url.searchParams.get('sortOrder') || 'asc';
+
+    // Pagination parameters
+    const requestedLimit = parseInt(url.searchParams.get('limit')) || 10;
+    const limit = Math.min(requestedLimit, 100);
+
+    const offset = (page - 1) * limit;
+
+    // Validate pagination parameters
+    const allowedSortColumns = ['name', 'email', 'created_at'];
+    if (!allowedSortColumns.includes(sortBy)) {
+      return sendError(res, 400, 'Invalid sort column.');
     }
-    sendJSON(res, 200, { users: users });
+    const safeSortOrder = sortOrder.toLowerCase() === 'desc' ? 'DESC' : 'ASC';
+
+    // Build the WHERE clause for search functionality
+    let whereClause = '';
+    let params = [];
+    if (searchTerm) {
+      whereClause = 'WHERE name LIKE ? OR email LIKE ?';
+      params.push(`%${searchTerm}%`, `%${searchTerm}%`);
+    }
+
+    // Get the total count for pagination
+    const countQuery = `SELECT COUNT(*) as total FROM users ${whereClause}`;
+    const [countRows] = await db.execute(countQuery, params);
+    const totalUsers = countRows[0].total;
+    const totalPages = Math.ceil(totalUsers / limit);
+
+    // Build the final data query
+    const dataQuery = `
+      SELECT id, name, email, created_at FROM users 
+      ${whereClause} 
+      ORDER BY ${sortBy} ${safeSortOrder} 
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+
+    // Execute the query and send the comprehensive response
+    const [users] = await db.execute(dataQuery, params);
+    sendJSON(res, 200, {
+      users: users,
+      pagination: {
+        page: page,
+        limit: limit,
+        totalUsers: totalUsers,
+        totalPages: totalPages
+      }
+    });
   } catch (err) {
     console.error("Error fetching users:", err);
     sendError(res, 500, "Could not fetch users");
